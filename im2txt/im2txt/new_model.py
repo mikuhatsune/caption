@@ -25,6 +25,7 @@ from __future__ import print_function
 
 
 import tensorflow as tf
+slim = tf.contrib.slim
 
 from im2txt.ops import image_embedding
 from im2txt.ops import image_processing
@@ -187,17 +188,72 @@ class ShowAndTellModel(object):
     Outputs:
       self.image_embeddings
     """
-    inception_output = image_embedding.inception_v3(
+    net = image_embedding.rn_inception_v3(
         self.images,
         trainable=self.train_inception,
         is_training=self.is_training())
     self.inception_variables = tf.get_collection(
         tf.GraphKeys.GLOBAL_VARIABLES, scope="InceptionV3")
 
+    print ('\nnet', net.shape, '\n')
+    
     # Map inception output into embedding space.
     with tf.variable_scope("image_embedding") as scope:
+      fc = slim.fully_connected
+      # def g_theta(o_i, o_j, scope='g_theta', reuse=True):
+      #   with tf.variable_scope(scope, reuse=reuse) as scope:
+      #       if not reuse: print ('g_theta param not reuse') # log.warn(scope.name)
+      #       g_1 = fc(tf.concat([o_i, o_j], axis=1), 256, activation_fn=tf.nn.relu)
+      #       g_2 = fc(g_1, 256, activation_fn=tf.nn.relu)
+      #       g_3 = fc(g_2, 256, activation_fn=tf.nn.relu)
+      #       return g_3
+      #       # g_4 = fc(g_3, 256, name='g_4')
+      #       # return g_4
+
+      shape = net.get_shape().as_list()
+      d = shape[2]
+
+      _ = tf.range(1, delta=1/d)
+      g = tf.stack( tf.meshgrid(_,_), -1 )[None]
+      print ('\ng', g.shape, '\n')
+      net = tf.concat([ net, tf.tile(g, [shape[0],1,1,1]) ], axis=-1)
+      print ('\nnet coord', net.shape, '\n')
+
+      all_singletons = [ net[:, int(i / d), int(i % d), :] for i in range(d*d) ]
+      all_pairs = [ tf.concat([all_singletons[i], all_singletons[j]], axis=-1)
+                    for i in range(d*d) for j in range(d*d) ]
+      
+      net = tf.concat(all_pairs, axis=0)
+      print ('\nnet cat', net.shape, '\n')
+
+      g_1 = fc(net, 256, activation_fn=tf.nn.relu)
+      g_2 = fc(g_1, 256, activation_fn=tf.nn.relu)
+      g_3 = fc(g_2, 256, activation_fn=tf.nn.relu)
+      print ('\ng_3', g_3.shape, '\n')
+
+      net = tf.reshape(g_3, [d**4, shape[0], 256])
+      net = tf.reduce_mean(net, axis=0)
+      print ('\nnet mean', net.shape, '\n')
+
+      # all_g = []
+      # for i in range(d*d):
+      #     o_i = net[:, int(i / d), int(i % d), :]
+      #     # o_i = concat_coor(o_i, i, d)
+      #     for j in range(d*d):
+      #         o_j = net[:, int(j / d), int(j % d), :]
+      #         # o_j = concat_coor(o_j, j, d)
+      #         if i == 0 and j == 0:
+      #             g_i_j = g_theta(o_i, o_j, reuse=False)
+      #         else:
+      #             g_i_j = g_theta(o_i, o_j, reuse=True)
+      #         all_g.append(g_i_j)
+      # all_g = tf.stack(all_g, axis=0)
+      # all_g = tf.reduce_mean(all_g, axis=0, name='all_g')
+      # print ('all_g', all_g.shape)
+      # net = all_g
+
       image_embeddings = tf.contrib.layers.fully_connected(
-          inputs=inception_output,
+          inputs=net,
           num_outputs=self.config.embedding_size,
           activation_fn=None,
           weights_initializer=self.initializer,
