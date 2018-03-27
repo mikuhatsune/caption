@@ -22,7 +22,7 @@ from __future__ import print_function
 import tensorflow as tf
 
 from im2txt import configuration
-from im2txt import show_and_tell_model
+from im2txt import show_and_tell_model, new_model
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -32,12 +32,14 @@ tf.flags.DEFINE_string("inception_checkpoint_file", "",
                        "Path to a pretrained inception_v3 model.")
 tf.flags.DEFINE_string("train_dir", "",
                        "Directory for saving and loading model checkpoints.")
-tf.flags.DEFINE_boolean("train_inception", False,
-                        "Whether to train inception submodel variables.")
+tf.flags.DEFINE_boolean("train_cnn", False,
+                        "Whether to train the image submodel variables.")
 tf.flags.DEFINE_integer("number_of_steps", 1000000, "Number of training steps.")
 # tf.flags.DEFINE_integer("log_every_n_steps", 1,
 tf.flags.DEFINE_integer("log_every_n_steps", 20,
                         "Frequency at which loss and global step are logged.")
+tf.flags.DEFINE_string("model", "rn",
+                        "Model type (rn, inception).")
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -61,14 +63,18 @@ def main(unused_argv):
   g = tf.Graph()
   with g.as_default():
     # Build the model.
-    model = show_and_tell_model.ShowAndTellModel(
-        model_config, mode="train", train_inception=FLAGS.train_inception)
+    if FLAGS.model == "rn":
+      model = new_model.ShowAndTellModel(
+          model_config, mode="train", train_inception=FLAGS.train_cnn)
+    else:
+      model = show_and_tell_model.ShowAndTellModel(
+          model_config, mode="train", train_inception=FLAGS.train_cnn)
     model.build()
 
     # Set up the learning rate.
     learning_rate_decay_fn = None
-    if FLAGS.train_inception:
-      learning_rate = tf.constant(training_config.train_inception_learning_rate)
+    if FLAGS.train_cnn:
+      learning_rate = tf.constant(training_config.train_cnn_learning_rate)
     else:
       learning_rate = tf.constant(training_config.initial_learning_rate)
       if training_config.learning_rate_decay_factor > 0:
