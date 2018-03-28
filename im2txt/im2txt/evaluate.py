@@ -32,7 +32,7 @@ import numpy as np
 import tensorflow as tf
 
 from im2txt import configuration
-from im2txt import show_and_tell_model
+from im2txt import show_and_tell_model, new_model
 
 FLAGS = tf.flags.FLAGS
 
@@ -49,6 +49,9 @@ tf.flags.DEFINE_integer("num_eval_examples", 10132,
 
 tf.flags.DEFINE_integer("min_global_step", 5000,
                         "Minimum global step to run evaluation.")
+
+tf.flags.DEFINE_string("model", "rn",
+                        "Model type (rn, inception).")
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -164,7 +167,11 @@ def run():
     # Build the model for evaluation.
     model_config = configuration.ModelConfig()
     model_config.input_file_pattern = FLAGS.input_file_pattern
-    model = show_and_tell_model.ShowAndTellModel(model_config, mode="eval")
+    # model = show_and_tell_model.ShowAndTellModel(model_config, mode="eval")
+    if FLAGS.model == "rn":
+      model = new_model.ShowAndTellModel(model_config, mode="eval")
+    else:
+      model = show_and_tell_model.ShowAndTellModel(model_config, mode="eval")
     model.build()
 
     # Create the Saver to restore model Variables.

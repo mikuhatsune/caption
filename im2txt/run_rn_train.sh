@@ -1,0 +1,1 @@
+/home/yuanyiz2/rgp.sh 7 im2txt/train.py --input_file_pattern=data/train-?????-of-00256 --inception_checkpoint_file=../pretrained/inception_v3.ckpt --train_dir=rn_model/train --train_inception=false --number_of_steps=100000 --log_every_n_steps=100
